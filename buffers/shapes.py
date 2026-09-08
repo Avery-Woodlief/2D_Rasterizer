@@ -1,178 +1,179 @@
 import numpy as np
 from skimage.morphology import footprints
 
+
+def compute_clipped_bounds(main_buffer : np.ndarray, **kw) -> tuple[tuple[int, int, int, int], tuple[int, int, int, int]]:
+    buffer_height, buffer_width = main_buffer.shape[:2]
+    radius = kw.get("radius", None)
+    center = kw.get("center", None)
+    topleft = kw.get("topleft", None)
+    width = kw.get("width", None)
+    height = kw.get("height", None)
+    apex_pos = kw.get("apex_pos", None)
+    base = kw.get("base", None)
+    x_offset = kw.get("x_offset", None)
+
+    x1 = x2 = y1 = y2 = 0
+
+    if (radius is not None) and (center is not None) and isinstance(center, tuple) and isinstance(radius, int):
+        x, y = center
+        x1 = x - radius
+        x2 = x + radius + 1
+        y1 = y - radius
+        y2 = y + radius + 1
+    elif (topleft is not None) and (width is not None) and (height is not None) and isinstance(topleft, tuple) and isinstance(width, int) and isinstance(height, int):
+        x, y = topleft
+        x1 = x
+        x2 = x + width
+        y1 = y
+        y2 = y + height
+    elif (apex_pos is not None) and (base is not None) and (height is not None) and (x_offset is not None) and isinstance(apex_pos, tuple) and isinstance(base, int) and isinstance(height, int) and isinstance(x_offset, int):
+        Ax, Ay = apex_pos
+        x1 = x_offset
+        x2 = x_offset + base
+        y1 = Ay - height
+        y2 = Ay
+    buffer_x1 = max(0, x1)
+    buffer_x2 = min(buffer_width, x2)
+    buffer_y1 = max(0, y1)
+    buffer_y2 = min(buffer_height, y2)
+    mask_x1 = buffer_x1 - x1
+    mask_x2 = mask_x1 + (buffer_x2 - buffer_x1)
+    mask_y1 = buffer_y1 - y1
+    mask_y2 = mask_y1 + (buffer_y2 - buffer_y1)
+
+    return (buffer_x1, buffer_x2, buffer_y1, buffer_y2), (mask_x1, mask_x2, mask_y1, mask_y2)
+
+def clipping_helper(main_buffer : np.ndarray, mask : np.ndarray, color : tuple[int, int, int, int], **kw) -> None:
+    radius = kw.get("radius", None)
+    center = kw.get("center", None)
+    topleft = kw.get("topleft", None)
+    width = kw.get("width", None)
+    height = kw.get("height", None)
+    apex_pos = kw.get("apex_pos", None)
+    base = kw.get("base", None)
+    x_offset = kw.get("x_offset", None)
+
+    buffer_bounds = None
+    mask_bounds = None
+
+    if (radius is not None) and (center is not None) and isinstance(radius, int) and isinstance(center, tuple):
+        buffer_bounds, mask_bounds = compute_clipped_bounds(main_buffer, center=center, radius=radius)
+    elif (width is not None) and (height is not None) and (topleft is not None) and isinstance(width, int) and isinstance(height, int) and isinstance(topleft, tuple):
+        buffer_bounds, mask_bounds = compute_clipped_bounds(main_buffer, topleft=topleft, width=width, height=height)
+    elif (apex_pos is not None) and (base is not None) and (height is not None) and (x_offset is not None) and isinstance(apex_pos, tuple) and isinstance(base, int) and isinstance(height, int) and isinstance(x_offset, int):
+        buffer_bounds, mask_bounds = compute_clipped_bounds(main_buffer, apex_pos=apex_pos, base=base, height=height, x_offset=x_offset)
+
+    if (buffer_bounds is not None) and (mask_bounds is not None):
+        bx1, bx2, by1, by2 = buffer_bounds
+        mx1, mx2, my1, my2 = mask_bounds
+        region = main_buffer[by1:by2, bx1:bx2]
+        clipped_mask = mask[my1:my2, mx1:mx2]
+        region[clipped_mask.astype(bool)] = color
+    return
+
 def draw_circle(main_buffer : np.ndarray, center : tuple[int, int], radius : int, color : tuple[int, int, int, int]) -> None:
     """
         with strict_radius being False, the radius is extended by 0.5.
     """
-    """mask = footprints.disk(radius, strict_radius=False).astype(bool)
-    x, y = center
-    region = main_buffer[
-        y-radius:y + radius + 1,
-        x-radius:x + radius + 1
-    ]
-
-    region[mask] = color"""
     mask = footprints.disk(radius, strict_radius=False).astype(bool)
-
-    x, y = center
-    #TODO: handle appropriate clipping for all shapes with a universal method
-
-    h, w = main_buffer.shape[:2]
-
-    # Desired bounds
-    x1 = x - radius
-    x2 = x + radius + 1
-    y1 = y - radius
-    y2 = y + radius + 1
-
-    # Clip to framebuffer
-    bx1 = max(0, x1)
-    bx2 = min(w, x2)
-    by1 = max(0, y1)
-    by2 = min(h, y2)
-
-    # Corresponding section of the mask
-    mx1 = bx1 - x1
-    mx2 = mx1 + (bx2 - bx1)
-    my1 = by1 - y1
-    my2 = my1 + (by2 - by1)
-
-    region = main_buffer[by1:by2, bx1:bx2]
-    clipped_mask = mask[my1:my2, mx1:mx2]
-
-    region[clipped_mask] = color
+    clipping_helper(main_buffer, mask, color, radius=radius, center=center)
+#Clipping - done
 
 def draw_diamond(main_buffer : np.ndarray, center : tuple[int, int], radius : int, color : tuple[int, int, int, int]) -> None:
     mask = footprints.diamond(radius).astype(bool)
-    x, y = center
-    region = main_buffer[
-        y-radius:y + radius + 1,
-        x-radius:x + radius + 1
-    ]
-
-    region[mask] = color
+    clipping_helper(main_buffer, mask, color, radius=radius, center=center)
+#Clipping - done
 
 def draw_ellipse(main_buffer : np.ndarray, topleft : tuple[int, int], width : int, height : int, color : tuple[int, int, int, int]) -> None:
-    mask = footprints.ellipse(width, height).astype(bool)
-
-    x, y = topleft
-    mask_height, mask_width = mask.shape
-
-    region = main_buffer[
-        y:y + mask_height,
-        x:x + mask_width
-    ]
-
-    region[mask] = color
+    mask = footprints.ellipse(width//2, height//2).astype(bool)
+    clipping_helper(main_buffer, mask, color, topleft=topleft, width=width, height=height)
+#Clipping - done
 
 def draw_octagon(main_buffer : np.ndarray, topleft : tuple[int, int], m : int, n : int, color : tuple[int, int, int, int]) -> None:
     mask = footprints.octagon(m, n).astype(bool)
-
-    x, y = topleft
-    mask_height, mask_width = mask.shape
-
-    region = main_buffer[
-        y:y + mask_height,
-        x:x + mask_width
-    ]
-    region[mask] = color
-
+    width = (m + (2*n))
+    height = (m + (2*n))
+    clipping_helper(main_buffer, mask, color, topleft=topleft, width=width, height=height)
+#Clipping - done
 
 def draw_star(main_buffer : np.ndarray, topleft : tuple[int, int], a : int, color: tuple[int, int, int, int]) -> None:
     mask = footprints.star(a).astype(bool)
-
-    x, y = topleft
-    mask_height, mask_width = mask.shape
-
-    region = main_buffer[
-        y:y + mask_height,
-        x:x + mask_width
-    ]
-    region[mask] = color
+    width = ((2*a) + 1 + (2*(a//2)))
+    height = ((2*a) + 1 + (2*(a//2)))
+    clipping_helper(main_buffer, mask, color, topleft=topleft, width=width, height=height)
+#Clipping - done
 
 def draw_rectangle(main_buffer : np.ndarray, topleft : tuple[int, int], shape : tuple[int, int], color: tuple[int, int, int, int]) -> None:
     mask = footprints.footprint_rectangle(shape).astype(bool)
-    x, y = topleft
-    mask_height, mask_width = mask.shape
+    height, width = shape
+    clipping_helper(main_buffer, mask, color, topleft=topleft, width=width, height=height)
+#Clipping - done
 
-    region = main_buffer[
-        y:y + mask_height,
-        x:x + mask_width
-    ]
-    region[mask] = color
+from cython_code.triangle_mask import build_triangle_mask
+def draw_triangle(main_buffer, color, height, base, apex_pos, x_offset = 0):
 
-
-def cross_footprint(size: int) -> np.ndarray:
-    mask = np.zeros((size, size), dtype=bool)
-
-    center = size // 2
-
-    mask[center, :] = True
-    mask[:, center] = True
-
-    return mask
-def draw_cross(main_buffer : np.ndarray, topleft : tuple[int, int], size : int, color: tuple[int, int, int, int]) -> None:
-    mask = cross_footprint(size).astype(bool)
-    x, y = topleft
-    mask_height, mask_width = mask.shape
-
-    region = main_buffer[
-        y:y + mask_height,
-        x:x + mask_width
-    ]
-    region[mask] = color
-
-def test_custom_circle(main_buffer, color, center, radius):
-    test_footprint = []#[[1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]
-    c_x, c_y = center
-    for y in range(2*radius + 1):
-        test_footprint.append([])
-        for x in range(2*radius + 1):
-            if ((x - c_x)**2 + (y-c_y)**2) <= ((radius**2) + .5):
-                test_footprint[y].append(1)
-            else:
-                test_footprint[y].append(0)
-    test_footprint = np.array(test_footprint)
-    mask = test_footprint.astype(bool)
-    mask_height, mask_width = mask.shape
-    region = main_buffer[c_y - radius:c_y + radius + 1,c_x - radius:c_x+radius + 1]
-    region[mask] = color
-
-def test_custom_triangle(main_buffer, color, height, base, apex_pos, x_offset = 0):
     Ax, Ay = apex_pos
-    mask = footprints.footprint_rectangle((height, base)).astype(bool)
 
-    m1 = height/Ax
+    mask = footprints.footprint_rectangle((height, base)).astype(np.uint8)
+
     try:
-        m3 = (-height)/(base - Ax)
+        m1 = height / Ax
+    except ZeroDivisionError:
+        m1 = np.inf
 
+    try:
+        m3 = (-height) / (base - Ax)
     except ZeroDivisionError:
         m3 = np.inf
-    Y1 = lambda x: -height + Ay + m1*x
-    Y2 = Ay - height
-    Y3 = lambda x: Ay + m3 * (x - Ax)
-    for y in range(Ay - height, Ay + 1):
-        for x in range(base):
-            if (0 <= x <= Ax):
-                if (y > Y1(x)):
-                    mask[Ay - y, x] = 0
-            elif (Ax < x <= base):
-                if (y > Y3(x)):
-                    mask[Ay - y, x] = 0
-    region = main_buffer[
-        Y2: Ay,
-        x_offset: base + x_offset
-    ]
-    #mask[:] = footprints.mirror_footprint(mask[:])
+
+
+    build_triangle_mask(apex_pos, mask, base, height, m1, m3)
+
     mask = np.flip(mask, axis=0)
-    region[mask.astype(bool)] = color
-    import json
-    from utils.file_operations import find_file
-    colors = json.load(find_file(folder_name = "color",file_name = "color_dictionary.json").open("r"))
+    clipping_helper(main_buffer, mask, color, apex_pos=apex_pos, base=base, height=height, x_offset=x_offset)
 
-    draw_circle(main_buffer, (Ax + x_offset, Ay), 2, colors["bright-purple"])
-    draw_circle(main_buffer, (x_offset, Y2), 2, colors["bright-purple"])
-    draw_circle(main_buffer, (base + x_offset, Y2), 2, colors["bright-purple"])
+    """
+    # Desired framebuffer bounds
+    x1 = x_offset
+    x2 = x_offset + base
 
+    y1 = Ay - height
+    y2 = Ay
 
+    buffer_height, buffer_width = main_buffer.shape[:2]
+
+    # Clip framebuffer bounds
+    buffer_x1 = max(0, x1)
+    buffer_x2 = min(buffer_width, x2)
+
+    buffer_y1 = max(0, y1)
+    buffer_y2 = min(buffer_height, y2)
+
+    # Matching mask bounds
+    mask_x1 = buffer_x1 - x1
+    mask_x2 = mask_x1 + (buffer_x2 - buffer_x1)
+
+    mask_y1 = buffer_y1 - y1
+    mask_y2 = mask_y1 + (buffer_y2 - buffer_y1)
+
+    region = main_buffer[
+        buffer_y1:buffer_y2,
+        buffer_x1:buffer_x2
+    ]
+
+    clipped_mask = mask[
+        mask_y1:mask_y2,
+        mask_x1:mask_x2
+    ]
+
+    region[clipped_mask.astype(bool)] = color
+    
+    bx1, bx2, by1, by2 = buffer_bounds
+    mx1, mx2, my1, my2 = mask_bounds
+    region = main_buffer[by1:by2, bx1:bx2]
+    clipped_mask = mask[my1:my2, mx1:mx2]
+    region[clipped_mask] = color
+    
+    """
+#Clipping - done

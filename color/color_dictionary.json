@@ -1,10 +1,14 @@
 {
   "bright-red": [255, 0, 0, 255],
+  "transparent-red": [150, 0, 0, 127],
   "bright-green": [0, 255, 0, 255],
+  "transparent-green": [0, 150, 0, 127],
   "bright-blue": [0, 0, 255, 255],
+  "transparent-blue": [0, 0, 150, 127],
   "white": [255, 255, 255, 255],
   "black": [0, 0, 0, 255],
   "grey": [127, 127, 127, 255],
   "bright-purple": [255, 0, 255, 255],
+  "transparent-purple": [150, 0, 150, 127],
   "transparent": [0, 0, 0, 0]
 }
