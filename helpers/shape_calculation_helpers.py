@@ -9,7 +9,6 @@ def compute_clipped_bounds(main_buffer : np.ndarray, **kw) -> tuple[tuple[int, i
     height = kw.get("height", None)
     apex_pos = kw.get("apex_pos", None)
     base = kw.get("base", None)
-    x_offset = kw.get("x_offset", None)
 
     x1 = x2 = y1 = y2 = 0
 
@@ -25,10 +24,10 @@ def compute_clipped_bounds(main_buffer : np.ndarray, **kw) -> tuple[tuple[int, i
         x2 = x + width
         y1 = y
         y2 = y + height
-    elif (apex_pos is not None) and (base is not None) and (height is not None) and (x_offset is not None) and isinstance(apex_pos, tuple) and isinstance(base, int) and isinstance(height, int) and isinstance(x_offset, int):
+    elif (apex_pos is not None) and (base is not None) and (height is not None) and isinstance(apex_pos, tuple) and isinstance(base, int) and isinstance(height, int):
         Ax, Ay = apex_pos
-        x1 = x_offset
-        x2 = x_offset + base
+        x1 = 0
+        x2 = 0 + base
         y1 = Ay - height
         y2 = Ay
     buffer_x1 = max(0, x1)
@@ -50,7 +49,7 @@ def clipping_helper(main_buffer : np.ndarray, mask : np.ndarray, **kw) -> tuple[
     height = kw.get("height", None)
     apex_pos = kw.get("apex_pos", None)
     base = kw.get("base", None)
-    x_offset = kw.get("x_offset", None)
+    #x_offset = kw.get("x_offset", None)
 
     buffer_bounds = None
     mask_bounds = None
@@ -64,9 +63,9 @@ def clipping_helper(main_buffer : np.ndarray, mask : np.ndarray, **kw) -> tuple[
          and isinstance(width, int) and isinstance(height, int) and isinstance(topleft, tuple):
         buffer_bounds, mask_bounds = compute_clipped_bounds(main_buffer, topleft=topleft, width=width, height=height)
 
-    elif (apex_pos is not None) and (base is not None) and (height is not None) and (x_offset is not None) \
-          and isinstance(apex_pos, tuple) and isinstance(base, int) and isinstance(height, int) and isinstance(x_offset, int):
-        buffer_bounds, mask_bounds = compute_clipped_bounds(main_buffer, apex_pos=apex_pos, base=base, height=height, x_offset=x_offset)
+    elif (apex_pos is not None) and (base is not None) and (height is not None) \
+          and isinstance(apex_pos, tuple) and isinstance(base, int) and isinstance(height, int):
+        buffer_bounds, mask_bounds = compute_clipped_bounds(main_buffer, apex_pos=apex_pos, base=base, height=height)
 
     if (buffer_bounds is not None) and (mask_bounds is not None):
         bx1, bx2, by1, by2 = buffer_bounds

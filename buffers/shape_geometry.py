@@ -2,6 +2,7 @@ from typing import Any
 from skimage.morphology import footprints
 from helpers.shape_calculation_helpers import *
 from time import perf_counter
+import skimage.draw
 
 
 def circle(world : np.ndarray, center : tuple[int, int], radius : int, **kw) -> tuple[np.ndarray | None, np.ndarray | None] | None:
@@ -78,9 +79,21 @@ def rectangle(world : np.ndarray, topleft : tuple[int, int], shape : tuple[int, 
 #Clipping - done
 
 from cython_code.triangle_mask import build_triangle_mask
-def triangle(world : np.ndarray, height : int, base: int, apex_pos : tuple[int, int], x_offset: int = 0, **kw) -> tuple[np.ndarray | None, np.ndarray | None] | None:
+def triangle(world : np.ndarray, points : list, **kw) -> tuple[np.ndarray | None, np.ndarray | None] | int:
 
+    if len(points) != 3:
+        raise ValueError(f"Need 3 points for a triangle, got {len(points)}")
+    p1 = points[0]
+    p2 = points[1]
+    x1, y1 = p1
+    x2, y2 = p2
+
+    apex_pos = points[2]
     Ax, Ay = apex_pos
+
+    height = abs(Ay - y1)
+    base = abs(x2 - x1)
+    print(base, height)
 
     mask = footprints.footprint_rectangle((height, base)).astype(np.uint8)
 
@@ -98,14 +111,22 @@ def triangle(world : np.ndarray, height : int, base: int, apex_pos : tuple[int, 
     build_triangle_mask(apex_pos, mask, base, height, m1, m3)
 
     mask = np.flip(mask, axis=0)
-    region, clipped_mask = clipping_helper(world, mask, apex_pos=apex_pos, base=base, height=height, x_offset=x_offset)
+    region, clipped_mask = clipping_helper(world, mask, apex_pos=apex_pos, base=base, height=height)
     color = kw.get("color", [0, 0, 0, 255])
     if (region is not None) and (clipped_mask is not None):
         region[clipped_mask] = color
-        return None
+        return 1
     return region, clipped_mask
 #Clipping - done
 
+
+def polygon(buffer : np.ndarray, points : list, color: tuple[int, int, int, int] = [0, 0, 0, 255]):
+    axis0 = [point[1] for point in points]
+    axis1 = [point[0] for point in points]
+
+    rr, cc = skimage.draw.polygon(axis0, axis1,shape=buffer.shape[:2])
+
+    buffer[rr, cc] = color
 
 def mirror_shape_axis(shape_buffer : np.ndarray, axis : int = 0) -> np.ndarray | None:
     if axis > len(shape_buffer.shape):
