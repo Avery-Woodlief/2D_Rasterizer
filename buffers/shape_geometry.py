@@ -120,34 +120,16 @@ def triangle(world : np.ndarray, points : list, **kw) -> tuple[np.ndarray | None
 #Clipping - done
 
 
-from dataclasses import dataclass
-from random import randint
-
-@dataclass
-class Polygon:
-    rr: np.ndarray
-    cc : np.ndarray
-    color: tuple[int, int, int, int]
-
-layers = {}
-LAYER_COLORS = [[layer] + [randint(layer, 255) for _ in range(2)] + [255] for layer in range(256)]
-
 def polygon(buffer : np.ndarray, points : list, **kw):
     layer = kw.get("layer", 0)
     axis0 = [point[1] for point in points]
     axis1 = [point[0] for point in points]
 
     rr, cc = skimage.draw.polygon(axis0, axis1,shape=buffer.shape[:2])
+    return (rr, cc), kw.get("color", [0, 0, 0, 255]), layer
+#Clipping - done, handled by skimage.draw.polygon
 
-
-    buffer[rr, cc] = LAYER_COLORS[layer]
-    if layers.get(layer, None) is not None:
-        layers[layer].append(Polygon(rr=rr, cc=cc, color=kw.get("color", [0, 0, 0, 255])))
-    else:
-        layers[layer] = [Polygon(rr=rr, cc=cc, color=kw.get("color", [0, 0, 0, 255]))]
-
-
-def clean_image(framebuffer:np.ndarray, cleaning_footprint : np.ndarray) -> np.ndarray:
+def clean_image(framebuffer:np.ndarray, cleaning_footprint : np.ndarray, layers : dict) -> np.ndarray:
     from skimage.morphology import opening, closing
 
     HEIGHT, WIDTH = framebuffer.shape[:2]
