@@ -16,7 +16,7 @@ LAYER_COLORS = [[layer] + [randint(layer, 255) for _ in range(2)] + [255] for la
 
 
 class Drawing:
-    def __init__(self, width : int, height : int, alpha : bool = True):
+    def __init__(self, height : int, width : int, alpha : bool = True):
         self.width = width
         self.height = height
         self.framebuffer = np.zeros(
@@ -120,4 +120,4 @@ class Drawing:
         return final_image
 
     def imsave(self, name : str, buffer_input : np.ndarray) -> None:
-        io.imsave(f"media/{name}.png", buffer_input)
+        io.imsave(name, buffer_input)
