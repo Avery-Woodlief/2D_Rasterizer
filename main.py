@@ -112,17 +112,13 @@ def count_ones(mask : np.ndarray) -> int:
         ones += list(row).count(1)
     return ones
 
-def clipping(n : int, m : int):
+def clipping_test_comparison(n : int, m : int, height : int, width : int, radius : int):
 
     from random import randint
     from skimage.morphology import disk
     from helpers.color_sampling import clip
     from utils.file_operations import find_file, overwrite_file
 
-
-    height = 256
-    width = 512
-    radius = 16
     mask = disk(radius)
 
     capture = []
@@ -168,6 +164,23 @@ def clipping(n : int, m : int):
     capture.append([f"clip_circle_mask won {(c/tot) * 100}% of the time"])
     overwrite_file(find_file(filename="pretty_buffer_example.txt"), capture)
 
+from helpers.color_sampling import create_color_palette_image_avg, create_color_palette_image_raw
 
 if __name__ == "__main__":
-    clipping(50, 20)
+    #clipping(50, 20)
+    from skimage.morphology import disk
+    from PIL import Image
+    img = Image.open("media/stone-wall-isolated-on-transparent-background-png.png")
+
+    height, width = img.size
+    print(height, width)
+    img.close()
+    pixel_count = height * width
+    print(pixel_count)
+    avg_dim = (height + width)/2
+    rad = int(avg_dim * .025)
+    print(avg_dim)
+    print(rad)
+    create_color_palette_image_avg("images.jpeg", "stone_palette_attempt", n_samples=(pixel_count//count_ones(disk(rad)) + 1), radius=rad)
+    #create_color_palette_image_raw("images.jpeg", "stone_palette_attempt", n_samples=(pixel_count//count_ones(disk(rad)) + 1), radius=rad)
+    #clipping_test_comparison(10, 10, height, width, rad)

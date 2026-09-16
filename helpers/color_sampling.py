@@ -45,15 +45,74 @@ def clip(mask_buffer : np.ndarray, mask : np.ndarray, width:int, height:int, x :
         mx1:mx2
     ]
 
-def sample_colors(image : np.ndarray,mask: np.ndarray) -> np.ndarray:
+
+def clip_circle_mask(mask_buffer : np.ndarray, circle_mask : np.ndarray, radius : int, center : tuple[int, int], width:int, height:int):
+    mask_center_x, mask_center_y = center # in terms of the mask_buffer coordinate system
+
+    mask_height, mask_width = circle_mask.shape
+
+    x_lower_bound_global = 0
+    x_upper_bound_global = width - 1
+    y_lower_bound_global = 0
+    y_upper_bound_global = height - 1
+
+    global_x1 = mask_center_x - radius
+    global_x2 = mask_center_x + radius + 1
+    global_y1 = mask_center_y - radius
+    global_y2 = mask_center_y + radius + 1
+
+    mask_x1 = 0
+    mask_x2 = mask_width
+    mask_y1 = 0
+    mask_y2 = mask_height
+    clipped = False
+
+    if mask_center_x - radius < x_lower_bound_global:
+        #print("left side clip")
+        i = x_lower_bound_global - (mask_center_x - radius)
+        mask_x1 += i
+        global_x1 += i
+        clipped = True
+
+
+    if mask_center_x + radius > x_upper_bound_global:
+        #print("right side clip")
+        i = (mask_center_x + radius) - x_upper_bound_global
+        mask_x2 -= i
+        global_x2 -= i
+        clipped = True
+
+    if mask_center_y - radius < y_lower_bound_global:
+        #print("top side clip")
+        i = y_lower_bound_global - (mask_center_y - radius)
+        mask_y1 += i
+        global_y1 += i
+        clipped = True
+
+    if mask_center_y + radius > y_upper_bound_global:
+        #print("bottom side clip")
+        i = (mask_center_y + radius) - y_upper_bound_global
+        mask_y2 -= i
+        global_y2 -= i
+        clipped = True
+
+    if clipped:
+        mask_buffer[global_y1:global_y2,global_x1:global_x2] = circle_mask[mask_y1:mask_y2,mask_x1:mask_x2]
+    else:
+        mask_buffer[global_y1:global_y2,global_x1:global_x2] = circle_mask
+
+
+def sample_colors(image : np.ndarray,mask: np.ndarray, radius) -> np.ndarray:
 
 
 
     height, width = image.shape[:2]
 
     mask_buffer = np.zeros((height, width), dtype=bool)
-    clip(mask_buffer, mask, width, height)
-
+    #clip(mask_buffer, mask, width, height)
+    x = randint(0, width - 1)
+    y = randint(0, height - 1)
+    clip_circle_mask(mask_buffer, mask, radius, (x, y), width, height)
 
     pixels = image[mask_buffer]
 
@@ -70,9 +129,9 @@ def create_palette_image_instructions(colors: list[list[int] | tuple[int, ...]])
     y_spacing = 0
     w=50
     h=50
-    rows=3
+    rows=count % w
     palete_width = (w + x_spacing) * (count//rows)
-    palete_height = (h + y_spacing) * rows
+    palete_height = (h + y_spacing) * (count//rows)
 
     def hue(color):
         r, g, b = color[:3]
@@ -131,7 +190,46 @@ def create_palette_image_instructions(colors: list[list[int] | tuple[int, ...]])
     return instructions
 
 
-def create_color_palette_image(filename : str, output_name : str, n_samples :int, radius=1):
+def create_color_palette_image_raw(filename : str, output_name : str, n_samples :int, radius=1):
+    from skimage.morphology import disk
+
+    image_path = find_file(foldername="media", filename=filename)
+    #image = io.imread(image_path)
+    #image = io.imread(image_path)
+    image = np.asarray(
+        Image.open(image_path).convert("RGBA")
+    )
+    collected_colors = []
+    for _ in range(n_samples):
+        colors = sample_colors(image, disk(radius, strict_radius=True), radius=radius)
+        count = len(colors)
+        for color in colors:
+            r, g, b, a = tuple(color)
+            already_gotten = False
+            for collected_color in collected_colors:
+                r2, g2, b2, a2 = tuple(collected_color)
+                if r == r2 and g == g2 and b == b2 and a == a2:
+                    already_gotten = True
+            if not (already_gotten):
+                collected_colors.append(color)
+    rel, abs_=resolve_path(foldername="objects", filename="generated_palete.poly")
+    overwrite_file(abs_, create_palette_image_instructions(collected_colors))
+    from buffers.drawing import Drawing
+    from helpers.polyfile_reader import read_polyfile
+
+    calls = read_polyfile("generated_palete.poly")
+    HEIGHT, WIDTH = calls[0]["size"]
+    drawing = Drawing(HEIGHT, WIDTH)
+    calls = calls[1:]
+    for call in calls:
+        getattr(drawing, "poly")(**call.get("poly"))
+
+    image = drawing.clean_image(disk(0))
+
+    drawing.imsave(resolve_path(foldername="media", filename=f"{output_name}.png")[0], image)
+
+
+def create_color_palette_image_avg(filename : str, output_name : str, n_samples :int, radius=1):
     from skimage.morphology import disk
 
     image_path = find_file(foldername="media", filename=filename)
@@ -146,7 +244,7 @@ def create_color_palette_image(filename : str, output_name : str, n_samples :int
         average_green=0
         average_blue=0
         average_alpha=0
-        colors = sample_colors(image, disk(radius, strict_radius=True))
+        colors = sample_colors(image, disk(radius, strict_radius=True), radius=radius)
         count = len(colors)
         for color in colors:
             r, g, b, a = tuple(map(int, color))
@@ -176,7 +274,7 @@ def create_color_palette_image(filename : str, output_name : str, n_samples :int
 
     image = drawing.clean_image(disk(0))
 
-    drawing.imsave(resolve_path(foldername="../media", filename=f"{output_name}.png")[0], image)
+    drawing.imsave(resolve_path(foldername="media", filename=f"{output_name}.png")[0], image)
 """
 if __name__ == "__main__":
     N=10
