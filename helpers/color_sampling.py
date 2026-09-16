@@ -1,3 +1,4 @@
+# must be run from root dir
 import colorsys
 from pathlib import Path
 from PIL import Image
@@ -7,11 +8,11 @@ from skimage import io
 from random import randint
 from utils.file_operations import find_file, ROOT, overwrite_file, resolve_path
 
-def clip(mask_buffer : np.ndarray, mask : np.ndarray, width:int, height:int):
+def clip(mask_buffer : np.ndarray, mask : np.ndarray, width:int, height:int, x : int, y : int):
     h, w = mask.shape
 
-    x = randint(0, width - 1)
-    y = randint(0, height - 1)
+    #x = randint(0, width - 1)
+    #y = randint(0, height - 1)
 
     radius = (h+w) // 4
 
@@ -46,25 +47,7 @@ def clip(mask_buffer : np.ndarray, mask : np.ndarray, width:int, height:int):
 
 def sample_colors(image : np.ndarray,mask: np.ndarray) -> np.ndarray:
 
-    #image = io.imread(image_path)
 
-    """
-    if image.ndim == 2:
-        # Grayscale -> RGB
-        image = np.stack((image, image, image), axis=-1)
-
-    if image.shape[-1] == 3:
-        # RGB -> RGBA
-        alpha = np.full(
-            (*image.shape[:2], 1),
-            255,
-            dtype=image.dtype
-        )
-
-        image = np.concatenate(
-            (image, alpha),
-            axis=2
-        )"""
 
     height, width = image.shape[:2]
 
@@ -194,6 +177,7 @@ def create_color_palette_image(filename : str, output_name : str, n_samples :int
     image = drawing.clean_image(disk(0))
 
     drawing.imsave(resolve_path(foldername="../media", filename=f"{output_name}.png")[0], image)
+"""
 if __name__ == "__main__":
     N=10
     from skimage.morphology import disk
@@ -204,3 +188,11 @@ if __name__ == "__main__":
         return ones
     pixel_count = 447*447
     create_color_palette_image("images.jpeg", f"stone_palette", n_samples=(pixel_count//count_ones(disk(5)) + 1), radius=5)
+"""
+
+if __name__ == "__main__":
+    height = 128
+    width = 128
+    mask = disk(1)
+    mask_buffer = np.zeros((height, width), dtype=bool)
+    clip(mask_buffer, mask, width, height)
